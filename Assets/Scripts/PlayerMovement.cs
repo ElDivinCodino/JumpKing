@@ -12,6 +12,12 @@ public class PlayerMovement : MonoBehaviour
     State state;
     Animator anim;
 
+    [SerializeField]
+    float fallMultiplier = 1.5f;
+
+    [SerializeField]
+    float lowJumpMultiplier = 1f;
+
     public event EventHandler<PlaySoundEventArgs> PlaySoundEvent;
 
     public class PlaySoundEventArgs : EventArgs
@@ -70,6 +76,15 @@ public class PlayerMovement : MonoBehaviour
             PlaySoundEvent?.Invoke(this, new PlaySoundEventArgs { sfx = "jump" });
             SetState(State.InAir);
         }
+
+        if(rb.velocity.y < 0)
+        {
+            rb.velocity += Vector2.up * Physics2D.gravity.y * fallMultiplier * Time.fixedDeltaTime;
+        }
+        else if (rb.velocity.y > 0)
+        {
+            rb.velocity += Vector2.up * Physics2D.gravity.y * lowJumpMultiplier * Time.fixedDeltaTime;
+        }
     }
 
     private void OnCollisionEnter2D(Collision2D other)
@@ -90,18 +105,12 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    // private void OnCollisionStay2D(Collision2D other)
-    // {
-    //     // Check collisions while sliding on the same chunk of tiles
-    //     if (state != State.Grounded)
-    //     {
-    //         if (CheckIfJumpableSurface(other))
-    //         {
-    //             SetState(State.Grounded);
-    //             PlaySoundEvent?.Invoke(this, new PlaySoundEventArgs { sfx = "hitJumpableSurface" });
-    //         }
-    //     }
-    // }
+    private void ResetTriggers()
+    {
+        foreach(AnimatorControllerParameter p in anim.parameters)
+         if (p.type == AnimatorControllerParameterType.Trigger)
+             anim.ResetTrigger(p.name);
+    }
 
     bool CheckIfJumpableSurface(Collision2D other)
     {
@@ -122,12 +131,19 @@ public class PlayerMovement : MonoBehaviour
             case State.Grounded:
                 state = State.Grounded;
                 rb.velocity = Vector3.zero;
-                PlayerControls.Instance.enabled = true;
+                ResetTriggers();
+                StartCoroutine(EnableControl(true, 0.75f));
                 break;
             case State.InAir:
                 state = State.InAir;
-                PlayerControls.Instance.enabled = false;
+                StartCoroutine(EnableControl(false, 0f));
                 break;
         }
+    }
+
+    IEnumerator EnableControl(bool enable, float time)
+    {
+        yield return new WaitForSeconds(time);
+        PlayerControls.Instance.enabled = enable;
     }
 }
